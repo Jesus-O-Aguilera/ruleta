@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ruleta de Alumnos</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --c1: #FF6B6B; --c2: #FFE66D; --c3: #4ECDC4; --c4: #A8E6CF;
+    --c5: #FF8B94; --c6: #B8F0E6; --c7: #FFA07A; --c8: #98D8C8;
+    --c9: #F7DC6F; --c10: #82E0AA; --c11: #F1948A; --c12: #7FB3D3;
+    --bg: #1a1a2e; --bg2: #16213e; --card: #0f3460;
+    --text: #ffffff; --muted: rgba(255,255,255,0.7);
+    --accent: #FFE66D; --green: #4ECDC4; --red: #FF6B6B;
+  }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Stars bg */
+  body::before {
+    content: '';
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background-image: radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 80% 70%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 50% 50%, rgba(255,255,255,0.2) 0%, transparent 100%),
+      radial-gradient(1px 1px at 10% 80%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 90% 20%, rgba(255,255,255,0.4) 0%, transparent 100%);
+    pointer-events: none; z-index: 0;
+  }
+
+  #app { position: relative; z-index: 1; }
+
+  /* NAV */
+  nav {
+    display: flex; align-items: center; justify-content: center;
+    padding: 1rem; gap: 0.5rem;
+    background: rgba(15,52,96,0.8);
+    backdrop-filter: blur(10px);
+    border-bottom: 2px solid rgba(255,255,255,0.1);
+  }
+
+  .nav-title {
+    font-size: 1.5rem; font-weight: 900;
+    background: linear-gradient(135deg, #FFE66D, #FF8B94, #4ECDC4);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-right: 1.5rem;
+  }
+
+  .tab-btn {
+    padding: 0.5rem 1.2rem;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 50px;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.95rem; font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .tab-btn.active {
+    background: var(--accent);
+    color: #1a1a2e;
+    border-color: var(--accent);
+    transform: scale(1.05);
+  }
+  .tab-btn:hover:not(.active) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* VIEWS */
+  .view { display: none; padding: 1.5rem; max-width: 900px; margin: 0 auto; }
+  .view.active { display: block; }
+
+  /* RULETA VIEW */
+  #view-ruleta { text-align: center; }
+
+  .student-counter {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    background: rgba(255,255,255,0.1);
+    border-radius: 50px; padding: 0.4rem 1rem;
+    font-size: 0.9rem; margin-bottom: 1.5rem;
+  }
+  .counter-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:0.7} }
+
+  .wheel-wrapper {
+    position: relative; display: inline-block;
+    margin: 1rem auto;
+  }
+
+  .wheel-pointer {
+    position: absolute;
+    top: -18px; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 16px solid transparent;
+    border-right: 16px solid transparent;
+    border-top: 36px solid #FFE66D;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+    z-index: 10;
+    animation: pointerBounce 2s ease-in-out infinite;
+  }
+  @keyframes pointerBounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-4px)} }
+
+  canvas#wheel {
+    border-radius: 50%;
+    display: block;
+    filter: drop-shadow(0 8px 32px rgba(0,0,0,0.6));
+    transition: filter 0.3s;
+  }
+
+  .wheel-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 60px; height: 60px;
+    background: radial-gradient(circle, #fff 60%, #ddd);
+    border-radius: 50%;
+    border: 4px solid #FFE66D;
+    box-shadow: 0 0 20px rgba(255,230,109,0.6);
+    z-index: 5;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem;
+  }
+
+  .spin-btn {
+    display: block; margin: 1.5rem auto 0.5rem;
+    padding: 0.9rem 3rem;
+    font-family: 'Nunito', sans-serif;
+    font-size: 1.3rem; font-weight: 900;
+    background: linear-gradient(135deg, #FFE66D, #FFA07A);
+    color: #1a1a2e;
+    border: none; border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(255,230,109,0.4);
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .spin-btn:hover:not(:disabled) { transform: translateY(-3px) scale(1.04); box-shadow: 0 10px 28px rgba(255,230,109,0.5); }
+  .spin-btn:active:not(:disabled) { transform: scale(0.97); }
+  .spin-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .reset-btn {
+    display: block; margin: 0.5rem auto;
+    padding: 0.6rem 2rem;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.95rem; font-weight: 700;
+    background: transparent;
+    color: var(--red);
+    border: 2px solid var(--red);
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .reset-btn:hover { background: var(--red); color: white; }
+
+  /* WINNER MODAL */
+  .modal-overlay {
+    display: none; position: fixed;
+    inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(6px);
+    align-items: center; justify-content: center;
+    animation: fadeIn 0.3s ease;
+  }
+  .modal-overlay.show { display: flex; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+  .winner-card {
+    background: linear-gradient(135deg, #0f3460, #16213e);
+    border: 3px solid var(--accent);
+    border-radius: 24px;
+    padding: 2.5rem 3rem;
+    text-align: center;
+    max-width: 380px; width: 90%;
+    animation: winnerPop 0.5s cubic-bezier(0.175,0.885,0.32,1.275);
+    position: relative;
+    overflow: hidden;
+  }
+  @keyframes winnerPop { from{transform:scale(0.5);opacity:0} to{transform:scale(1);opacity:1} }
+
+  .winner-emoji { font-size: 4rem; display: block; margin-bottom: 0.5rem; animation: spin3d 0.8s ease; }
+  @keyframes spin3d { from{transform:rotateY(180deg) scale(0)} to{transform:rotateY(0) scale(1)} }
+
+  .winner-label { font-size: 0.9rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; }
+  .winner-name {
+    font-size: 2.2rem; font-weight: 900;
+    background: linear-gradient(135deg, #FFE66D, #FF8B94);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin: 0.5rem 0 1.5rem;
+    word-break: break-word;
+  }
+
+  .winner-actions { display: flex; gap: 0.8rem; justify-content: center; flex-wrap: wrap; }
+  .btn-continue {
+    padding: 0.7rem 1.8rem;
+    background: var(--green); color: #1a1a2e;
+    border: none; border-radius: 50px;
+    font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1rem;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .btn-continue:hover { transform: scale(1.05); }
+  .btn-remove {
+    padding: 0.7rem 1.8rem;
+    background: var(--red); color: white;
+    border: none; border-radius: 50px;
+    font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1rem;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .btn-remove:hover { transform: scale(1.05); }
+
+  /* Confetti */
+  .confetti-piece {
+    position: fixed; width: 10px; height: 10px;
+    top: -10px; pointer-events: none; z-index: 200;
+    border-radius: 2px;
+    animation: confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+
+  /* EMPTY STATE */
+  .empty-state {
+    padding: 3rem 1rem;
+    display: flex; flex-direction: column; align-items: center; gap: 1rem;
+  }
+  .empty-state-icon { font-size: 5rem; animation: float 3s ease-in-out infinite; }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+  .empty-state p { font-size: 1.2rem; font-weight: 700; color: var(--muted); }
+  .empty-go-btn {
+    padding: 0.6rem 2rem;
+    background: var(--accent); color: #1a1a2e;
+    border: none; border-radius: 50px;
+    font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1rem;
+    cursor: pointer;
+  }
+
+  /* ALUMNOS VIEW */
+  #view-alumnos h2 {
+    font-size: 1.6rem; font-weight: 900;
+    background: linear-gradient(135deg, #4ECDC4, #A8E6CF);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 1.5rem;
+  }
+
+  .add-form {
+    display: flex; gap: 0.7rem; margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .add-input {
+    flex: 1; min-width: 200px;
+    padding: 0.75rem 1.2rem;
+    background: rgba(255,255,255,0.08);
+    border: 2px solid rgba(255,255,255,0.15);
+    border-radius: 50px;
+    color: white;
+    font-family: 'Nunito', sans-serif; font-size: 1rem; font-weight: 600;
+    outline: none;
+    transition: border-color 0.3s;
+  }
+  .add-input::placeholder { color: rgba(255,255,255,0.3); }
+  .add-input:focus { border-color: var(--green); }
+  .add-input-btn {
+    padding: 0.75rem 1.5rem;
+    background: var(--green); color: #1a1a2e;
+    border: none; border-radius: 50px;
+    font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1rem;
+    cursor: pointer; white-space: nowrap;
+    transition: all 0.2s;
+  }
+  .add-input-btn:hover { transform: scale(1.05); background: #5ae8df; }
+
+  .students-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.8rem;
+  }
+
+  .student-chip {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.7rem 1rem;
+    background: rgba(255,255,255,0.07);
+    border: 2px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    font-weight: 700; font-size: 0.95rem;
+    transition: all 0.3s;
+    animation: chipIn 0.3s cubic-bezier(0.175,0.885,0.32,1.275);
+  }
+  @keyframes chipIn { from{transform:scale(0.7);opacity:0} to{transform:scale(1);opacity:1} }
+  .student-chip:hover { border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.12); }
+  .student-chip.eliminated {
+    opacity: 0.4;
+    background: rgba(255,107,107,0.1);
+    border-color: rgba(255,107,107,0.3);
+    text-decoration: line-through;
+  }
+
+  .chip-color { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .chip-name { flex: 1; margin: 0 0.6rem; }
+  .chip-del {
+    background: none; border: none;
+    color: rgba(255,100,100,0.6); cursor: pointer;
+    font-size: 1.1rem; line-height: 1;
+    transition: color 0.2s; padding: 2px;
+  }
+  .chip-del:hover { color: var(--red); }
+
+  .section-actions {
+    display: flex; gap: 0.7rem; margin-top: 1.2rem; flex-wrap: wrap;
+  }
+  .action-btn {
+    padding: 0.5rem 1.2rem;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 50px; background: transparent;
+    color: var(--muted);
+    font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 0.85rem;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .action-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .action-btn.danger:hover { border-color: var(--red); color: var(--red); }
+
+  .no-students { color: var(--muted); font-size: 1rem; text-align: center; padding: 2rem; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 2rem; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: #2ecc71; color: white;
+    padding: 0.7rem 1.5rem;
+    border-radius: 50px; font-weight: 700;
+    z-index: 300; transition: transform 0.4s cubic-bezier(0.175,0.885,0.32,1.275);
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.error { background: var(--red); }
+
+  /* Spinning animation */
+  .spinning { animation: pointerBounce 0.1s ease-in-out infinite !important; }
+  canvas.glow { filter: drop-shadow(0 8px 32px rgba(255,230,109,0.7)) !important; }
+</style>
+</head>
+<body>
+<div id="app">
+  <nav>
+    <span class="nav-title">🎡 Ruleta</span>
+    <button class="tab-btn active" onclick="showTab('ruleta')">🎯 Ruleta</button>
+    <button class="tab-btn" onclick="showTab('alumnos')">👥 Alumnos</button>
+  </nav>
+
+  <!-- RULETA -->
+  <div id="view-ruleta" class="view active">
+    <div class="student-counter">
+      <span class="counter-dot"></span>
+      <span id="counter-text">0 alumnos en juego</span>
+    </div>
+
+    <div id="wheel-area">
+      <div class="wheel-wrapper" id="wheelWrapper">
+        <div class="wheel-pointer" id="pointer"></div>
+        <canvas id="wheel" width="320" height="320"></canvas>
+        <div class="wheel-center">🌟</div>
+      </div>
+    </div>
+
+    <button class="spin-btn" id="spinBtn" onclick="spin()">¡GIRAR! 🎲</button>
+    <button class="reset-btn" onclick="resetRuleta()">↺ Reiniciar ruleta</button>
+  </div>
+
+  <!-- ALUMNOS -->
+  <div id="view-alumnos" class="view">
+    <h2>✏️ Gestión de Alumnos</h2>
+    <div class="add-form">
+      <input class="add-input" id="nameInput" type="text" placeholder="Nombre del alumno..." maxlength="30"
+        onkeydown="if(event.key==='Enter')addStudent()">
+      <button class="add-input-btn" onclick="addStudent()">+ Añadir</button>
+    </div>
+    <div class="students-grid" id="studentsGrid"></div>
+    <div class="section-actions">
+      <button class="action-btn" onclick="addSampleStudents()">🎲 Añadir ejemplos</button>
+      <button class="action-btn danger" onclick="clearAll()">🗑 Borrar todos</button>
+    </div>
+  </div>
+
+  <!-- WINNER MODAL -->
+  <div class="modal-overlay" id="winnerModal">
+    <div class="winner-card">
+      <span class="winner-emoji" id="winnerEmoji">🏆</span>
+      <p class="winner-label">¡El elegido es!</p>
+      <p class="winner-name" id="winnerName">—</p>
+      <div class="winner-actions">
+        <button class="btn-remove" onclick="eliminateWinner()">❌ Eliminar</button>
+        <button class="btn-continue" onclick="closeModal()">✓ Continuar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+const COLORS = ['#FF6B6B','#FFE66D','#4ECDC4','#A8E6CF','#FF8B94','#98D8C8','#FFA07A','#B8F0E6','#F7DC6F','#82E0AA','#F1948A','#7FB3D3','#C39BD3','#F8C471','#76D7C4','#F0B27A'];
+const EMOJIS = ['🏆','⭐','🎉','🥳','🎯','🌟','🦁','🐯','🚀','🎸','💎','🏅','🎪','🔥','✨','🎠'];
+const SAMPLE_NAMES = ['Ana García','Carlos López','María Pérez','Pablo Martínez','Lucía Rodríguez','Javier Sánchez','Sofía Torres','Miguel Flores','Valentina Cruz','Daniel Moreno'];
+
+let state = { students: [], eliminated: [], currentWinner: null };
+let isSpinning = false;
+let currentAngle = 0;
+
+function loadState() {
+  try {
+    const s = localStorage.getItem('ruleta_state');
+    if(s) state = JSON.parse(s);
+  } catch(e) {}
+}
+function saveState() {
+  localStorage.setItem('ruleta_state', JSON.stringify(state));
+}
+
+function getActive() {
+  return state.students.filter(s => !state.eliminated.includes(s.id));
+}
+
+function showTab(tab) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + tab).classList.add('active');
+  event.target.classList.add('active');
+  if(tab === 'ruleta') renderWheel();
+}
+
+function addStudent() {
+  const inp = document.getElementById('nameInput');
+  const name = inp.value.trim();
+  if(!name) { showToast('¡Escribe un nombre!', true); return; }
+  if(state.students.find(s => s.name.toLowerCase() === name.toLowerCase())) {
+    showToast('¡Ese alumno ya existe!', true); return;
+  }
+  const id = Date.now() + Math.random();
+  const colorIdx = state.students.length % COLORS.length;
+  state.students.push({ id, name, color: COLORS[colorIdx] });
+  saveState();
+  inp.value = '';
+  renderStudentsList();
+  renderWheel();
+  showToast('✓ ' + name + ' añadido');
+}
+
+function deleteStudent(id) {
+  state.students = state.students.filter(s => s.id !== id);
+  state.eliminated = state.eliminated.filter(e => e !== id);
+  saveState();
+  renderStudentsList();
+  renderWheel();
+}
+
+function eliminateWinner() {
+  if(state.currentWinner) {
+    state.eliminated.push(state.currentWinner.id);
+    saveState();
+  }
+  closeModal();
+  renderWheel();
+  renderStudentsList();
+
+  const active = getActive();
+  if(active.length === 0) {
+    setTimeout(() => showEndState(), 600);
+  }
+}
+
+function showEndState() {
+  showToast('🎉 ¡Todos han participado! Reinicia para jugar de nuevo.');
+}
+
+function closeModal() {
+  document.getElementById('winnerModal').classList.remove('show');
+  state.currentWinner = null;
+  isSpinning = false;
+  document.getElementById('spinBtn').disabled = false;
+  document.getElementById('pointer').style.animation = '';
+  document.getElementById('wheel').classList.remove('glow');
+}
+
+function resetRuleta() {
+  if(!confirm('¿Seguro que quieres reiniciar la ruleta? Todos los alumnos volverán.')) return;
+  state.eliminated = [];
+  saveState();
+  renderWheel();
+  renderStudentsList();
+  showToast('↺ ¡Ruleta reiniciada!');
+}
+
+function clearAll() {
+  if(!confirm('¿Borrar TODOS los alumnos?')) return;
+  state = { students: [], eliminated: [], currentWinner: null };
+  saveState();
+  renderStudentsList();
+  renderWheel();
+}
+
+function addSampleStudents() {
+  let added = 0;
+  SAMPLE_NAMES.forEach(name => {
+    if(!state.students.find(s => s.name === name)) {
+      const id = Date.now() + Math.random();
+      const colorIdx = state.students.length % COLORS.length;
+      state.students.push({ id, name, color: COLORS[colorIdx] });
+      added++;
+    }
+  });
+  if(added > 0) { saveState(); renderStudentsList(); renderWheel(); showToast(`✓ ${added} alumnos añadidos`); }
+  else showToast('Ya están todos añadidos', true);
+}
+
+// ——— CANVAS WHEEL ———
+function renderWheel() {
+  const canvas = document.getElementById('wheel');
+  const ctx = canvas.getContext('2d');
+  const active = getActive();
+  updateCounter();
+
+  const W = canvas.width, H = canvas.height;
+  const cx = W/2, cy = H/2, r = W/2 - 6;
+  ctx.clearRect(0, 0, W, H);
+
+  if(active.length === 0) {
+    // Empty wheel
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI*2);
+    ctx.fillStyle = '#1a2a4a';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.font = 'bold 14px Nunito, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('¡Añade alumnos!', cx, cy);
+    document.getElementById('spinBtn').disabled = true;
+    return;
+  }
+
+  document.getElementById('spinBtn').disabled = false;
+  const sliceAngle = (Math.PI * 2) / active.length;
+
+  active.forEach((student, i) => {
+    const start = currentAngle + i * sliceAngle;
+    const end = start + sliceAngle;
+
+    // Sector
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, start, end);
+    ctx.closePath();
+    ctx.fillStyle = student.color;
+    ctx.fill();
+
+    // Border
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Text
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(start + sliceAngle / 2);
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+
+    const textR = r * 0.75;
+    const fontSize = active.length > 10 ? 10 : active.length > 6 ? 12 : 14;
+    ctx.font = `bold ${fontSize}px Nunito, sans-serif`;
+    ctx.fillStyle = '#1a1a2e';
+
+    // Truncate
+    let name = student.name;
+    if(name.length > 12) name = name.slice(0,10) + '…';
+    ctx.fillText(name, textR, 0);
+    ctx.restore();
+  });
+
+  // Outer ring
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI*2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Inner circle overlay
+  ctx.beginPath();
+  ctx.arc(cx, cy, 32, 0, Math.PI*2);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+  ctx.strokeStyle = '#FFE66D';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+}
+
+function updateCounter() {
+  const active = getActive();
+  const total = state.students.length;
+  const el = document.getElementById('counter-text');
+  el.textContent = `${active.length} de ${total} alumnos en juego`;
+}
+
+function getWinnerAtAngle() {
+  const active = getActive();
+  if(!active.length) return null;
+  const sliceAngle = (Math.PI * 2) / active.length;
+  // Pointer at top = -PI/2. Find which slice is at top.
+  const pointerAngle = -Math.PI / 2;
+  let normalizedAngle = ((pointerAngle - currentAngle) % (Math.PI*2) + Math.PI*2) % (Math.PI*2);
+  const idx = Math.floor(normalizedAngle / sliceAngle) % active.length;
+  return active[idx];
+}
+
+function spin() {
+  const active = getActive();
+  if(active.length === 0 || isSpinning) return;
+  isSpinning = true;
+  document.getElementById('spinBtn').disabled = true;
+  document.getElementById('wheel').classList.add('glow');
+
+  const totalRotation = (Math.PI * 2) * (5 + Math.floor(Math.random() * 5));
+  const sliceAngle = (Math.PI * 2) / active.length;
+
+  // Pick random winner
+  const winnerIdx = Math.floor(Math.random() * active.length);
+  const winner = active[winnerIdx];
+
+  // Compute final angle so winner lands at top
+  const pointerAngle = -Math.PI / 2;
+  const winnerMid = winnerIdx * sliceAngle + sliceAngle / 2;
+  const neededRotation = pointerAngle - winnerMid;
+  const finalAngle = currentAngle + totalRotation + (neededRotation - ((currentAngle + totalRotation) % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
+
+  const startAngle = currentAngle;
+  const duration = 4000 + Math.random() * 1000;
+  const startTime = performance.now();
+
+  function easeOut(t) {
+    return 1 - Math.pow(1 - t, 4);
+  }
+
+  function animate(now) {
+    const elapsed = now - startTime;
+    const t = Math.min(elapsed / duration, 1);
+    currentAngle = startAngle + (finalAngle - startAngle) * easeOut(t);
+    renderWheel();
+
+    if(t < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      currentAngle = finalAngle;
+      renderWheel();
+      showWinner(winner);
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+
+function showWinner(student) {
+  state.currentWinner = student;
+  document.getElementById('winnerName').textContent = student.name;
+  document.getElementById('winnerEmoji').textContent = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+  document.getElementById('winnerModal').classList.add('show');
+  launchConfetti();
+}
+
+function launchConfetti() {
+  const colors = ['#FFE66D','#FF6B6B','#4ECDC4','#A8E6CF','#FF8B94','#98D8C8','#FFA07A'];
+  for(let i = 0; i < 60; i++) {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      el.style.left = Math.random() * 100 + 'vw';
+      el.style.background = colors[Math.floor(Math.random() * colors.length)];
+      el.style.width = (6 + Math.random() * 8) + 'px';
+      el.style.height = (6 + Math.random() * 8) + 'px';
+      el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+      el.style.animationDuration = (2 + Math.random() * 2) + 's';
+      el.style.animationDelay = (Math.random() * 0.5) + 's';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 4000);
+    }, i * 30);
+  }
+}
+
+// STUDENTS LIST
+function renderStudentsList() {
+  const grid = document.getElementById('studentsGrid');
+  if(state.students.length === 0) {
+    grid.innerHTML = '<p class="no-students">No hay alumnos todavía. ¡Añade alguno!</p>';
+    return;
+  }
+  grid.innerHTML = state.students.map(s => {
+    const elim = state.eliminated.includes(s.id);
+    return `<div class="student-chip ${elim ? 'eliminated' : ''}">
+      <span class="chip-color" style="background:${s.color}"></span>
+      <span class="chip-name">${s.name}</span>
+      <button class="chip-del" onclick="deleteStudent(${s.id})" title="Eliminar">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function showToast(msg, error = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (error ? ' error' : '');
+  void t.offsetWidth;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// INIT
+loadState();
+renderStudentsList();
+renderWheel();
+</script>
+</body>
+</html>
